@@ -45,7 +45,7 @@ export function CodeEditor({
   }, [value, language]);
 
   return (
-    <Card className="flex flex-col h-full">
+    <Card className="flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
         <CardTitle className="text-lg font-semibold">{title}</CardTitle>
         {showActions && value && (
@@ -61,11 +61,11 @@ export function CodeEditor({
           </div>
         )}
       </CardHeader>
-      <CardContent className="flex-1 p-0">
-        <div className="h-full overflow-auto rounded-b-lg">
+      <CardContent className="p-0">
+        <div className="overflow-auto rounded-b-lg">
           <CodeMirror
-            value={value}
-            height="100%"
+            value={value || ''}
+            height="600px"
             minHeight="400px"
             theme="light"
             extensions={extensions}
