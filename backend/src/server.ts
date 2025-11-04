@@ -27,10 +27,10 @@ if (!fs.existsSync(uploadsDir)) {
 
 // Configure multer for file uploads
 const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => {
+  destination: (req, file, cb) => {
     cb(null, uploadsDir);
   },
-  filename: (_req, file, cb) => {
+  filename: (req, file, cb) => {
     const uniqueSuffix = Date.now() + '-' + Math.round(Math.random() * 1e9);
     cb(null, file.fieldname + '-' + uniqueSuffix + path.extname(file.originalname));
   },
@@ -39,7 +39,7 @@ const storage = multer.diskStorage({
 const upload = multer({
   storage,
   limits: { fileSize: 10 * 1024 * 1024 }, // 10MB limit
-  fileFilter: (_req, file, cb) => {
+  fileFilter: (req, file, cb) => {
     const allowedExtensions = ['.sql', '.json', '.bson', '.yaml', '.yml'];
     const ext = path.extname(file.originalname).toLowerCase();
     if (allowedExtensions.includes(ext)) {
@@ -109,12 +109,12 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 });
 
 // Health check endpoint
-app.get('/api/health', (_req, res) => {
+app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', service: 'TurboDbx API', version: '1.0.0' });
 });
 
 // Error handling middleware
-app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err);
   res.status(500).json({
     success: false,
