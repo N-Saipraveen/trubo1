@@ -19,8 +19,11 @@ export function mapSqlToNoSql(sqlType: string): NoSqlDataType {
   if (type.includes('BOOL')) {
     return NoSqlDataType.BOOLEAN;
   }
-  if (type.includes('DATE') || type.includes('TIME')) {
+  if (type.includes('DATE') || type.includes('TIMESTAMP')) {
     return NoSqlDataType.DATE;
+  }
+  if (type.includes('TIME')) {
+    return NoSqlDataType.STRING; // TIME fields should be strings in MongoDB
   }
   if (type.includes('DECIMAL') || type.includes('FLOAT') || type.includes('DOUBLE') || type.includes('NUMERIC')) {
     return NoSqlDataType.NUMBER;
