@@ -72,31 +72,41 @@ export function FileUpload() {
   );
 
   return (
-    <Card
-      className={`transition-all duration-200 ${
-        isDragging ? 'border-primary shadow-lg scale-[1.02]' : ''
-      }`}
-      onDrop={onDrop}
-      onDragOver={onDragOver}
-      onDragLeave={onDragLeave}
+    <motion.div
+      initial={{ opacity: 0, scale: 0.95 }}
+      animate={{ opacity: 1, scale: 1 }}
+      transition={{ duration: 0.5, ease: [0.4, 0, 0.2, 1] }}
     >
-      <CardContent className="p-8">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          className="flex flex-col items-center justify-center gap-4"
-        >
-          <div className="flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
+      <Card
+        className={`glass-card glass-card-hover transition-all duration-300 border-2 ${
+          isDragging ? 'border-primary shadow-2xl scale-[1.02] bg-primary/5' : 'border-white/40'
+        }`}
+        onDrop={onDrop}
+        onDragOver={onDragOver}
+        onDragLeave={onDragLeave}
+      >
+        <CardContent className="p-8">
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.5, delay: 0.1 }}
+            className="flex flex-col items-center justify-center gap-5"
+          >
+          <motion.div
+            whileHover={{ scale: 1.1, rotate: 5 }}
+            transition={{ duration: 0.3 }}
+            className="flex h-20 w-20 items-center justify-center rounded-3xl bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 shadow-lg shadow-purple-500/30"
+          >
             {isUploading ? (
-              <div className="h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent" />
+              <div className="h-10 w-10 animate-spin rounded-full border-4 border-white border-t-transparent" />
             ) : (
-              <Upload className="h-8 w-8 text-primary" />
+              <Upload className="h-10 w-10 text-white" />
             )}
-          </div>
+          </motion.div>
 
           <div className="text-center">
-            <h3 className="text-lg font-semibold">Upload Schema File</h3>
-            <p className="text-sm text-muted-foreground mt-1">
+            <h3 className="text-xl font-bold text-foreground">Upload Schema File</h3>
+            <p className="text-sm text-muted-foreground mt-2 font-medium">
               Drag and drop or click to browse
             </p>
           </div>
@@ -132,5 +142,6 @@ export function FileUpload() {
         </motion.div>
       </CardContent>
     </Card>
+    </motion.div>
   );
 }
