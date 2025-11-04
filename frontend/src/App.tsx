@@ -16,6 +16,7 @@ function App() {
     setInputContent,
     outputContent,
     sourceType,
+    targetType,
     warnings,
   } = useStore();
 
@@ -107,7 +108,7 @@ function App() {
                     title="Output Schema"
                     value={outputContent}
                     readOnly
-                    language={sourceType === 'sql' ? 'json' : 'sql'}
+                    language={targetType === 'sql' ? 'sql' : 'json'}
                     showActions={true}
                   />
                 </TabsContent>
