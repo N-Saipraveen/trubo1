@@ -1,0 +1,67 @@
+[
+  {
+    "id": 1,
+    "name": "John Doe",
+    "email": "john.doe@example.com",
+    "age": 30,
+    "isActive": true,
+    "address": {
+      "street": "123 Main St",
+      "city": "New York",
+      "state": "NY",
+      "zipCode": "10001"
+    },
+    "orders": [
+      {
+        "orderId": "ORD-001",
+        "total": 99.99,
+        "date": "2024-01-15"
+      },
+      {
+        "orderId": "ORD-002",
+        "total": 149.99,
+        "date": "2024-02-20"
+      }
+    ],
+    "tags": ["premium", "verified"],
+    "createdAt": "2023-01-10T08:00:00Z"
+  },
+  {
+    "id": 2,
+    "name": "Jane Smith",
+    "email": "jane.smith@example.com",
+    "age": 28,
+    "isActive": true,
+    "address": {
+      "street": "456 Oak Ave",
+      "city": "Los Angeles",
+      "state": "CA",
+      "zipCode": "90001"
+    },
+    "orders": [
+      {
+        "orderId": "ORD-003",
+        "total": 79.99,
+        "date": "2024-01-25"
+      }
+    ],
+    "tags": ["new"],
+    "createdAt": "2024-01-01T10:30:00Z"
+  },
+  {
+    "id": 3,
+    "name": "Bob Johnson",
+    "email": "bob.johnson@example.com",
+    "age": 45,
+    "isActive": false,
+    "address": {
+      "street": "789 Pine Rd",
+      "city": "Chicago",
+      "state": "IL",
+      "zipCode": "60601"
+    },
+    "orders": [],
+    "tags": ["inactive"],
+    "createdAt": "2022-06-15T14:20:00Z"
+  }
+]

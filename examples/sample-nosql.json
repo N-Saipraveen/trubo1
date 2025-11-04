@@ -1,0 +1,242 @@
+{
+  "type": "mongodb",
+  "collections": [
+    {
+      "name": "users",
+      "fields": [
+        {
+          "name": "_id",
+          "type": "objectId",
+          "required": true,
+          "unique": true
+        },
+        {
+          "name": "username",
+          "type": "string",
+          "required": true,
+          "unique": true
+        },
+        {
+          "name": "email",
+          "type": "string",
+          "required": true,
+          "unique": true
+        },
+        {
+          "name": "profile",
+          "type": "object",
+          "required": false,
+          "nested": [
+            {
+              "name": "firstName",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "lastName",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "bio",
+              "type": "string",
+              "required": false
+            },
+            {
+              "name": "avatarUrl",
+              "type": "string",
+              "required": false
+            }
+          ]
+        },
+        {
+          "name": "createdAt",
+          "type": "date",
+          "required": true,
+          "default": "Date.now"
+        },
+        {
+          "name": "updatedAt",
+          "type": "date",
+          "required": true,
+          "default": "Date.now"
+        }
+      ],
+      "indexes": [
+        {
+          "fields": { "email": 1 },
+          "unique": true
+        },
+        {
+          "fields": { "username": 1 },
+          "unique": true
+        }
+      ]
+    },
+    {
+      "name": "products",
+      "fields": [
+        {
+          "name": "_id",
+          "type": "objectId",
+          "required": true,
+          "unique": true
+        },
+        {
+          "name": "name",
+          "type": "string",
+          "required": true
+        },
+        {
+          "name": "description",
+          "type": "string",
+          "required": false
+        },
+        {
+          "name": "price",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "currency",
+          "type": "string",
+          "required": true,
+          "default": "USD"
+        },
+        {
+          "name": "inventory",
+          "type": "object",
+          "required": false,
+          "nested": [
+            {
+              "name": "quantity",
+              "type": "number",
+              "required": true
+            },
+            {
+              "name": "warehouse",
+              "type": "string",
+              "required": false
+            }
+          ]
+        },
+        {
+          "name": "categories",
+          "type": "array",
+          "required": false,
+          "arrayOf": "string"
+        },
+        {
+          "name": "tags",
+          "type": "array",
+          "required": false,
+          "arrayOf": "string"
+        },
+        {
+          "name": "images",
+          "type": "array",
+          "required": false,
+          "arrayOf": "string"
+        },
+        {
+          "name": "createdAt",
+          "type": "date",
+          "required": true,
+          "default": "Date.now"
+        }
+      ],
+      "indexes": [
+        {
+          "fields": { "name": 1 }
+        },
+        {
+          "fields": { "categories": 1 }
+        }
+      ]
+    },
+    {
+      "name": "orders",
+      "fields": [
+        {
+          "name": "_id",
+          "type": "objectId",
+          "required": true,
+          "unique": true
+        },
+        {
+          "name": "userId",
+          "type": "objectId",
+          "required": true,
+          "ref": "users"
+        },
+        {
+          "name": "items",
+          "type": "array",
+          "required": true,
+          "arrayOf": "object"
+        },
+        {
+          "name": "totalAmount",
+          "type": "number",
+          "required": true
+        },
+        {
+          "name": "status",
+          "type": "string",
+          "required": true,
+          "default": "pending",
+          "enum": ["pending", "processing", "shipped", "delivered", "cancelled"]
+        },
+        {
+          "name": "shippingAddress",
+          "type": "object",
+          "required": true,
+          "nested": [
+            {
+              "name": "street",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "city",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "state",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "zipCode",
+              "type": "string",
+              "required": true
+            },
+            {
+              "name": "country",
+              "type": "string",
+              "required": true
+            }
+          ]
+        },
+        {
+          "name": "createdAt",
+          "type": "date",
+          "required": true,
+          "default": "Date.now"
+        }
+      ],
+      "indexes": [
+        {
+          "fields": { "userId": 1 }
+        },
+        {
+          "fields": { "status": 1 }
+        },
+        {
+          "fields": { "createdAt": -1 }
+        }
+      ]
+    }
+  ]
+}
