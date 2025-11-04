@@ -261,22 +261,28 @@ function convertTableToCollection(
     fields.push(field);
   }
 
-  // Add timestamps if requested
+  // Add timestamps if requested (only if they don't already exist)
   if (options.includeTimestamps) {
-    fields.push(
-      {
+    const hasCreatedAt = fields.some(f => f.name === 'createdAt');
+    const hasUpdatedAt = fields.some(f => f.name === 'updatedAt');
+
+    if (!hasCreatedAt) {
+      fields.push({
         name: 'createdAt',
         type: NoSqlDataType.DATE,
         required: true,
         default: 'Date.now',
-      },
-      {
+      });
+    }
+
+    if (!hasUpdatedAt) {
+      fields.push({
         name: 'updatedAt',
         type: NoSqlDataType.DATE,
         required: true,
         default: 'Date.now',
-      }
-    );
+      });
+    }
   }
 
   // Create indexes
@@ -314,6 +320,38 @@ function convertTableToCollection(
 }
 
 /**
+ * Normalize default values for MongoDB/Mongoose compatibility
+ */
+function normalizeDefaultValue(defaultValue: any, fieldType: NoSqlDataType): any {
+  if (defaultValue === undefined || defaultValue === null) {
+    return undefined;
+  }
+
+  const strValue = String(defaultValue).toUpperCase();
+
+  // Convert boolean strings to actual booleans
+  if (strValue === 'TRUE') return true;
+  if (strValue === 'FALSE') return false;
+
+  // Convert SQL-style date/timestamp defaults to MongoDB style
+  if (strValue === 'CURRENT_TIMESTAMP' ||
+      strValue === 'CURRENT_DATE' ||
+      strValue === 'NOW()' ||
+      strValue === 'GETDATE()' ||
+      strValue === 'SYSDATE') {
+    return 'Date.now';
+  }
+
+  // For date fields, if it's a function-like default, use Date.now
+  if (fieldType === NoSqlDataType.DATE && strValue.includes('()')) {
+    return 'Date.now';
+  }
+
+  // Return original value for other cases
+  return defaultValue;
+}
+
+/**
  * Convert SQL column to NoSQL field
  */
 function convertColumnToField(
@@ -325,9 +363,11 @@ function convertColumnToField(
     ? column.name
     : sqlToNoSqlFieldName(column.name);
 
+  const fieldType = mapSqlToNoSql(column.type);
+
   const field: NoSqlField = {
     name: fieldName,
-    type: mapSqlToNoSql(column.type),
+    type: fieldType,
     required: !column.nullable,
   };
 
@@ -336,7 +376,7 @@ function convertColumnToField(
   }
 
   if (column.defaultValue !== undefined) {
-    field.default = column.defaultValue;
+    field.default = normalizeDefaultValue(column.defaultValue, fieldType);
   }
 
   // Handle foreign key as reference
