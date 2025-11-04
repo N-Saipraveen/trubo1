@@ -135,10 +135,15 @@ function analyzeNoSqlSchema(schema: NoSqlSchema): SchemaAnalysis {
     (sum, col) => sum + col.fields.length,
     0
   );
-  const relationships = schema.collections.reduce(
-    (sum, col) => sum + col.fields.filter(f => f.ref).length,
-    0
-  );
+
+  // Count relationships from the relationships array if it exists, otherwise count ref fields
+  const relationships = schema.relationships
+    ? schema.relationships.length
+    : schema.collections.reduce(
+        (sum, col) => sum + col.fields.filter(f => f.ref).length,
+        0
+      );
+
   const totalIndexes = schema.collections.reduce(
     (sum, col) => sum + (col.indexes?.length || 0),
     0

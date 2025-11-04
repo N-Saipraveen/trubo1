@@ -110,9 +110,19 @@ export interface NoSqlCollection {
   validationRules?: any;
 }
 
+// NoSQL Relationship Definition
+export interface NoSqlRelationship {
+  fromCollection: string;
+  fromField: string;
+  toCollection: string;
+  toField: string;
+  relationType?: 'one-to-one' | 'one-to-many' | 'many-to-many';
+}
+
 // NoSQL Schema
 export interface NoSqlSchema {
   collections: NoSqlCollection[];
+  relationships?: NoSqlRelationship[];
   type: 'mongodb' | 'dynamodb' | 'cassandra';
 }
 

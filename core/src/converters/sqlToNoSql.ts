@@ -3,7 +3,6 @@
  * Converts SQL schema and data to NoSQL (MongoDB-style) format
  */
 
-import { Parser } from 'node-sql-parser';
 import {
   SqlSchema,
   SqlTable,
@@ -12,6 +11,7 @@ import {
   NoSqlCollection,
   NoSqlField,
   NoSqlDataType,
+  NoSqlRelationship,
   ConversionOptions,
   ConversionResult,
 } from '../types';
@@ -20,8 +20,6 @@ import {
   sqlToNoSqlFieldName,
   tableToCollectionName,
 } from '../utils/dataMapper';
-
-const parser = new Parser();
 
 /**
  * Convert SQL schema to NoSQL schema
@@ -48,10 +46,15 @@ export function convertSqlToNoSql(
 
     // Convert each table to a collection
     const collections: NoSqlCollection[] = [];
+    const relationships: NoSqlRelationship[] = [];
 
     for (const table of tables) {
       const collection = convertTableToCollection(table, tables, options);
       collections.push(collection);
+
+      // Build relationships from foreign keys
+      const tableRelationships = buildRelationships(table, options);
+      relationships.push(...tableRelationships);
 
       // Check for potential embedding opportunities
       if (options.embedRelations) {
@@ -62,6 +65,7 @@ export function convertSqlToNoSql(
 
     const noSqlSchema: NoSqlSchema = {
       collections,
+      relationships: relationships.length > 0 ? relationships : undefined,
       type: 'mongodb',
     };
 
@@ -261,6 +265,22 @@ function convertTableToCollection(
     fields.push(field);
   }
 
+  // Process table-level foreign keys to add ref to fields
+  for (const fk of table.foreignKeys) {
+    const fieldName = options.preserveCase
+      ? fk.column
+      : sqlToNoSqlFieldName(fk.column);
+
+    // Find the field and add ref
+    const field = fields.find(f => f.name === fieldName);
+    if (field) {
+      field.ref = options.preserveCase
+        ? fk.references.table
+        : tableToCollectionName(fk.references.table);
+      field.type = NoSqlDataType.OBJECTID; // Foreign keys reference ObjectIds
+    }
+  }
+
   // Add timestamps if requested (only if they don't already exist)
   if (options.includeTimestamps) {
     const hasCreatedAt = fields.some(f => f.name === 'createdAt');
@@ -388,6 +408,63 @@ function convertColumnToField(
   }
 
   return field;
+}
+
+/**
+ * Build relationships array from foreign keys
+ */
+function buildRelationships(
+  table: SqlTable,
+  options: ConversionOptions
+): NoSqlRelationship[] {
+  const relationships: NoSqlRelationship[] = [];
+  const fromCollection = options.preserveCase
+    ? table.name
+    : tableToCollectionName(table.name);
+
+  // Process table-level foreign keys
+  for (const fk of table.foreignKeys) {
+    const fromField = options.preserveCase
+      ? fk.column
+      : sqlToNoSqlFieldName(fk.column);
+    const toCollection = options.preserveCase
+      ? fk.references.table
+      : tableToCollectionName(fk.references.table);
+    const toField = options.preserveCase
+      ? fk.references.column
+      : sqlToNoSqlFieldName(fk.references.column);
+
+    relationships.push({
+      fromCollection,
+      fromField,
+      toCollection,
+      toField: toField === 'id' ? '_id' : toField,
+    });
+  }
+
+  // Process inline column-level foreign keys
+  for (const column of table.columns) {
+    if (column.references) {
+      const fromField = options.preserveCase
+        ? column.name
+        : sqlToNoSqlFieldName(column.name);
+      const toCollection = options.preserveCase
+        ? column.references.table
+        : tableToCollectionName(column.references.table);
+      const toField = options.preserveCase
+        ? column.references.column
+        : sqlToNoSqlFieldName(column.references.column);
+
+      relationships.push({
+        fromCollection,
+        fromField,
+        toCollection,
+        toField: toField === 'id' ? '_id' : toField,
+      });
+    }
+  }
+
+  return relationships;
 }
 
 /**
