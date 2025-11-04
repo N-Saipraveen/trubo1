@@ -1,23 +1,48 @@
 /**
  * TurboDbx Backend Server
+ * Enterprise-grade database conversion and ETL platform
  */
+
+import dotenv from 'dotenv';
+dotenv.config();
 
 import express, { Express } from 'express';
 import cors from 'cors';
 import multer from 'multer';
 import path from 'path';
 import fs from 'fs';
+
+// Routes
 import convertRouter from './routes/convert';
 import analyzeRouter from './routes/analyze';
 import visualizeRouter from './routes/visualize';
+import aiRouter from './routes/ai';
+
+// Middleware
+import { helmetMiddleware, generalRateLimiter, sanitizeInput, errorLogger } from './middleware/security';
+import logger from './utils/logger';
 
 const app: Express = express();
 const PORT = Number(process.env.PORT) || 4000;
 
-// Middleware
-app.use(cors());
+// Security Middleware
+app.use(helmetMiddleware);
+app.use(generalRateLimiter);
+
+// CORS configuration
+app.use(cors({
+  origin: process.env.NODE_ENV === 'production'
+    ? ['https://your-production-domain.com']
+    : ['http://localhost:3000', 'http://localhost:5173'],
+  credentials: true,
+}));
+
+// Body parsing
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Input sanitization
+app.use(sanitizeInput);
 
 // Create uploads directory if it doesn't exist
 const uploadsDir = path.join(__dirname, '../uploads');
@@ -50,10 +75,13 @@ const upload = multer({
   },
 });
 
-// Routes
+// API Routes
 app.use('/api/convert', convertRouter);
 app.use('/api/analyze', analyzeRouter);
 app.use('/api/visualize', visualizeRouter);
+app.use('/api/ai', aiRouter);
+
+logger.info('All routes registered successfully');
 
 // File upload endpoint
 app.post('/api/upload', upload.single('file'), (req, res) => {
@@ -110,12 +138,28 @@ app.post('/api/upload', upload.single('file'), (req, res) => {
 
 // Health check endpoint
 app.get('/api/health', (_req, res) => {
-  res.json({ status: 'ok', service: 'TurboDbx API', version: '1.0.0' });
+  const health = {
+    status: 'ok',
+    service: 'TurboDbx API',
+    version: '2.0.0',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    environment: process.env.NODE_ENV || 'development',
+    features: {
+      etl: true,
+      aiMapping: !!(process.env.OPENAI_API_KEY && process.env.API_BASE_URL),
+      schemaAnalysis: true,
+      visualization: true,
+    },
+  };
+
+  res.json(health);
 });
 
 // Error handling middleware
+app.use(errorLogger);
 app.use((err: any, _req: express.Request, res: express.Response, _next: express.NextFunction) => {
-  console.error('Error:', err);
+  logger.error('Unhandled error:', err);
   res.status(500).json({
     success: false,
     error: err.message || 'Internal server error',
@@ -124,13 +168,33 @@ app.use((err: any, _req: express.Request, res: express.Response, _next: express.
 
 // Start server with error handling
 const server = app.listen(PORT, () => {
-  console.log(`\n🚀 TurboDbx API server running on http://localhost:${PORT}`);
-  console.log(`📊 API endpoints:`);
-  console.log(`   - POST /api/convert`);
-  console.log(`   - POST /api/analyze`);
-  console.log(`   - POST /api/visualize`);
-  console.log(`   - POST /api/upload`);
-  console.log(`   - GET  /api/health`);
+  logger.info(`TurboDbx API server started on port ${PORT}`);
+
+  console.log(`\n╔═══════════════════════════════════════════════════════════╗`);
+  console.log(`║  🚀 TurboDbx API Server v2.0                             ║`);
+  console.log(`╚═══════════════════════════════════════════════════════════╝`);
+  console.log(`\n📡 Server: http://localhost:${PORT}`);
+  console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+  console.log(`\n📊 Available Endpoints:`);
+  console.log(`   ETL & Conversion:`);
+  console.log(`   ├─ POST /api/convert        - Convert schemas`);
+  console.log(`   ├─ POST /api/analyze        - Analyze schema structure`);
+  console.log(`   ├─ POST /api/visualize      - Generate visual representations`);
+  console.log(`   └─ POST /api/upload         - Upload schema files`);
+  console.log(`\n   AI Intelligence:`);
+  console.log(`   ├─ POST /api/ai/map-schema  - AI-powered schema mapping`);
+  console.log(`   ├─ POST /api/ai/suggest-improvements`);
+  console.log(`   ├─ POST /api/ai/explain-relationships`);
+  console.log(`   └─ GET  /api/ai/status      - Check AI availability`);
+  console.log(`\n   System:`);
+  console.log(`   └─ GET  /api/health         - Health check\n`);
+
+  if (process.env.OPENAI_API_KEY && process.env.API_BASE_URL) {
+    console.log(`🤖 AI Features: ENABLED`);
+  } else {
+    console.log(`⚠️  AI Features: DISABLED (Set OPENAI_API_KEY and API_BASE_URL in .env)`);
+  }
+
   console.log(`\n✨ Ready to accept requests!\n`);
 });
 
