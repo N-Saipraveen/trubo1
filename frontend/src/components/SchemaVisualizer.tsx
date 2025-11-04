@@ -17,7 +17,7 @@ const nodeTypes = {
 };
 
 export function SchemaVisualizer() {
-  const { graphData, theme } = useStore();
+  const { graphData } = useStore();
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -43,16 +43,16 @@ export function SchemaVisualizer() {
           )
         },
         style: {
-          background: node.type === 'table' || node.type === 'collection'
-            ? theme === 'dark' ? '#1e293b' : '#f1f5f9'
-            : theme === 'dark' ? '#334155' : '#e2e8f0',
+          background: 'rgba(255, 255, 255, 0.9)',
+          backdropFilter: 'blur(20px)',
           border: '2px solid',
           borderColor: node.type === 'table' || node.type === 'collection'
-            ? theme === 'dark' ? '#3b82f6' : '#2563eb'
-            : theme === 'dark' ? '#64748b' : '#94a3b8',
-          borderRadius: '8px',
+            ? '#3b82f6'
+            : '#94a3b8',
+          borderRadius: '16px',
           padding: '0',
-          minWidth: '150px',
+          minWidth: '180px',
+          boxShadow: '0 8px 32px 0 rgba(31, 38, 135, 0.1)',
         },
       };
     });
@@ -68,21 +68,22 @@ export function SchemaVisualizer() {
         type: MarkerType.ArrowClosed,
         width: 20,
         height: 20,
-        color: theme === 'dark' ? '#64748b' : '#94a3b8',
+        color: '#3b82f6',
       },
       style: {
-        stroke: theme === 'dark' ? '#64748b' : '#94a3b8',
-        strokeWidth: 2,
+        stroke: edge.type === 'reference' ? '#8b5cf6' : '#3b82f6',
+        strokeWidth: 2.5,
       },
       labelStyle: {
-        fill: theme === 'dark' ? '#e2e8f0' : '#1e293b',
+        fill: '#1e293b',
         fontSize: 12,
+        fontWeight: 600,
       },
     }));
 
     setNodes(flowNodes);
     setEdges(flowEdges);
-  }, [graphData, theme, setNodes, setEdges]);
+  }, [graphData, setNodes, setEdges]);
 
   if (!graphData || !graphData.nodes || graphData.nodes.length === 0) {
     return (
@@ -100,9 +101,11 @@ export function SchemaVisualizer() {
   }
 
   return (
-    <Card className="h-[600px]">
+    <Card className="h-[600px] glass-card border-2 border-white/40">
       <CardHeader>
-        <CardTitle>Schema Visualization</CardTitle>
+        <CardTitle className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+          Schema Visualization
+        </CardTitle>
       </CardHeader>
       <CardContent className="p-0 h-[calc(100%-80px)]">
         <ReactFlow
@@ -112,10 +115,10 @@ export function SchemaVisualizer() {
           onEdgesChange={onEdgesChange}
           nodeTypes={nodeTypes}
           fitView
-          className={theme === 'dark' ? 'dark' : 'light'}
+          className="rounded-b-2xl"
         >
-          <Controls />
-          <Background />
+          <Controls className="glass-card" />
+          <Background color="#e0e7ff" gap={16} />
         </ReactFlow>
       </CardContent>
     </Card>

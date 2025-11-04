@@ -8,11 +8,6 @@ export type SchemaType = 'sql' | 'nosql' | 'json' | null;
 export type SqlDialect = 'mysql' | 'postgresql' | 'sqlite' | 'mssql';
 
 interface AppState {
-  // Theme
-  theme: 'light' | 'dark';
-  setTheme: (theme: 'light' | 'dark') => void;
-  toggleTheme: () => void;
-
   // Input
   inputContent: string;
   setInputContent: (content: string) => void;
@@ -85,19 +80,6 @@ const defaultOptions = {
 };
 
 export const useStore = create<AppState>((set) => ({
-  // Theme
-  theme: 'dark',
-  setTheme: (theme) => {
-    set({ theme });
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  },
-  toggleTheme: () =>
-    set((state) => {
-      const newTheme = state.theme === 'light' ? 'dark' : 'light';
-      document.documentElement.classList.toggle('dark', newTheme === 'dark');
-      return { theme: newTheme };
-    }),
-
   // Input
   inputContent: '',
   setInputContent: (content) => set({ inputContent: content }),

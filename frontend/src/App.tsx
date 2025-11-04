@@ -12,8 +12,6 @@ import { motion } from 'framer-motion';
 
 function App() {
   const {
-    theme,
-    setTheme,
     inputContent,
     setInputContent,
     outputContent,
@@ -22,41 +20,44 @@ function App() {
   } = useStore();
 
   useEffect(() => {
-    // Set initial theme and apply immediately
-    const savedTheme = localStorage.getItem('theme') as 'light' | 'dark' | null;
-    const initialTheme = savedTheme || 'dark';
-
-    // Apply dark class immediately to prevent flash
-    document.documentElement.classList.add('dark');
-
-    setTheme(initialTheme);
-  }, [setTheme]);
-
-  useEffect(() => {
-    // Save theme to localStorage
-    localStorage.setItem('theme', theme);
-  }, [theme]);
+    // Always use light mode
+    document.documentElement.classList.remove('dark');
+  }, []);
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background relative overflow-hidden">
+      {/* Floating background orbs */}
+      <div className="floating-orb orb-1" />
+      <div className="floating-orb orb-2" />
+      <div className="floating-orb orb-3" />
+
       <Header />
 
-      <main className="container py-8">
+      <main className="container py-8 relative z-10">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: [0.4, 0, 0.2, 1] }}
           className="space-y-8"
         >
           {/* Hero Section */}
-          <div className="text-center space-y-4">
-            <h2 className="text-4xl font-bold">
+          <motion.div
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.8, delay: 0.2, ease: [0.4, 0, 0.2, 1] }}
+            className="text-center space-y-6"
+          >
+            <h1 className="text-5xl md:text-6xl font-bold bg-gradient-to-r from-blue-600 via-purple-600 to-pink-600 bg-clip-text text-transparent animate-slide-up">
+              TurboDbx
+            </h1>
+            <h2 className="text-3xl md:text-4xl font-semibold text-foreground">
               Convert Your Database Schemas
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed">
               Transform between SQL, NoSQL, and JSON formats while preserving schema integrity,
-              constraints, and relationships.
+              constraints, and relationships with beautiful visualizations.
             </p>
-          </div>
+          </motion.div>
 
           {/* Main Content Grid */}
           <div className="grid lg:grid-cols-[400px_1fr] gap-6">
@@ -139,7 +140,7 @@ function App() {
         </motion.div>
       </main>
 
-      <Toaster theme={theme} richColors position="top-right" />
+      <Toaster theme="light" richColors position="top-right" />
     </div>
   );
 }
@@ -147,12 +148,16 @@ function App() {
 function FeatureCard({ title, description, icon }: { title: string; description: string; icon: string }) {
   return (
     <motion.div
-      whileHover={{ scale: 1.05 }}
-      className="p-6 rounded-lg border bg-card text-card-foreground shadow-sm"
+      initial={{ opacity: 0, y: 20 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      whileHover={{ scale: 1.05, y: -5 }}
+      transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+      className="glass-card glass-card-hover p-8 rounded-2xl group"
     >
-      <div className="text-4xl mb-3">{icon}</div>
-      <h3 className="text-lg font-semibold mb-2">{title}</h3>
-      <p className="text-sm text-muted-foreground">{description}</p>
+      <div className="text-5xl mb-4 transform group-hover:scale-110 transition-transform duration-300">{icon}</div>
+      <h3 className="text-xl font-bold mb-3 text-foreground">{title}</h3>
+      <p className="text-sm text-muted-foreground leading-relaxed">{description}</p>
     </motion.div>
   );
 }

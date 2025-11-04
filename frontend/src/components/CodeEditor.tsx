@@ -2,7 +2,6 @@ import { useCallback } from 'react';
 import CodeMirror from '@uiw/react-codemirror';
 import { sql } from '@codemirror/lang-sql';
 import { javascript } from '@codemirror/lang-javascript';
-import { useStore } from '@/store/useStore';
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card';
 import { Copy, Download } from 'lucide-react';
 import { Button } from './ui/button';
@@ -26,7 +25,6 @@ export function CodeEditor({
   language = 'sql',
   showActions = true,
 }: CodeEditorProps) {
-  const { theme } = useStore();
 
   const extensions = language === 'sql' ? [sql()] : [javascript({ jsx: false, typescript: false })];
 
@@ -69,7 +67,7 @@ export function CodeEditor({
             value={value}
             height="100%"
             minHeight="400px"
-            theme={theme === 'dark' ? 'dark' : 'light'}
+            theme="light"
             extensions={extensions}
             onChange={onChange}
             editable={!readOnly}
