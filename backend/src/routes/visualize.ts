@@ -72,9 +72,9 @@ router.post('/', async (req: Request, res: Response) => {
 /**
  * Generate graph from SQL schema
  */
-function generateSqlGraph(sql: string): VisualizeResponse['graph'] {
-  const nodes: VisualizeResponse['graph']['nodes'] = [];
-  const edges: VisualizeResponse['graph']['edges'] = [];
+function generateSqlGraph(sql: string): NonNullable<VisualizeResponse['graph']> {
+  const nodes: NonNullable<VisualizeResponse['graph']>['nodes'] = [];
+  const edges: NonNullable<VisualizeResponse['graph']>['edges'] = [];
 
   // Extract tables
   const tableRegex = /CREATE\s+TABLE\s+(?:IF\s+NOT\s+EXISTS\s+)?`?(\w+)`?\s*\(([\s\S]*?)\);/gi;
@@ -116,9 +116,9 @@ function generateSqlGraph(sql: string): VisualizeResponse['graph'] {
 /**
  * Generate graph from NoSQL schema
  */
-function generateNoSqlGraph(schema: any): VisualizeResponse['graph'] {
-  const nodes: VisualizeResponse['graph']['nodes'] = [];
-  const edges: VisualizeResponse['graph']['edges'] = [];
+function generateNoSqlGraph(schema: any): NonNullable<VisualizeResponse['graph']> {
+  const nodes: NonNullable<VisualizeResponse['graph']>['nodes'] = [];
+  const edges: NonNullable<VisualizeResponse['graph']>['edges'] = [];
 
   if (!schema.collections || !Array.isArray(schema.collections)) {
     return { nodes, edges };
@@ -170,9 +170,9 @@ function generateNoSqlGraph(schema: any): VisualizeResponse['graph'] {
 /**
  * Generate graph from JSON schema
  */
-function generateJsonGraph(schema: any): VisualizeResponse['graph'] {
-  const nodes: VisualizeResponse['graph']['nodes'] = [];
-  const edges: VisualizeResponse['graph']['edges'] = [];
+function generateJsonGraph(schema: any): NonNullable<VisualizeResponse['graph']> {
+  const nodes: NonNullable<VisualizeResponse['graph']>['nodes'] = [];
+  const edges: NonNullable<VisualizeResponse['graph']>['edges'] = [];
 
   // Add root node
   nodes.push({

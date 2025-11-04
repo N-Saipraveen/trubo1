@@ -4,7 +4,6 @@ import { Card, CardContent } from './ui/card';
 import { Button } from './ui/button';
 import { useStore } from '@/store/useStore';
 import { api } from '@/lib/api';
-import { formatBytes } from '@/lib/utils';
 import { motion } from 'framer-motion';
 import { toast } from 'sonner';
 
