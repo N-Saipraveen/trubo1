@@ -1,0 +1,386 @@
+/**
+ * Phase 2: Convert standardized JSON schema to MongoDB format
+ */
+
+import { StandardizedSchema, Table, Column, Relationship } from '../../schema_parser/types';
+import { MongoDBOptions } from './types';
+import logger from '../../utils/logger';
+
+interface MongoDBCollection {
+  name: string;
+  fields: MongoDBField[];
+  indexes?: MongoDBIndex[];
+  validator?: any;
+}
+
+interface MongoDBField {
+  name: string;
+  type: string;
+  required?: boolean;
+  unique?: boolean;
+  ref?: string;
+  default?: any;
+  enum?: string[];
+}
+
+interface MongoDBIndex {
+  fields: Record<string, 1 | -1>;
+  unique?: boolean;
+}
+
+/**
+ * Convert standardized JSON schema to MongoDB format
+ */
+export function jsonToMongoDB(schema: StandardizedSchema, options: MongoDBOptions = {}): string {
+  const {
+    format = 'json',
+    embedSmallRelationships = true,
+    generateIndexes = true,
+    generateValidators = true,
+    includeComments = true,
+  } = options;
+
+  logger.info('Converting standardized JSON to MongoDB format', { format });
+
+  // Transform to MongoDB collections
+  const collections = transformToMongoCollections(
+    schema,
+    embedSmallRelationships,
+    generateIndexes,
+    generateValidators
+  );
+
+  // Generate output based on format
+  switch (format) {
+    case 'mongoose':
+      return generateMongooseSchemas(collections, includeComments);
+    case 'validator':
+      return generateValidators ? JSON.stringify(generateMongoValidators(collections), null, 2) : '{}';
+    case 'json':
+    default:
+      return JSON.stringify({ collections, version: schema.version, metadata: schema.metadata }, null, 2);
+  }
+}
+
+/**
+ * Transform SQL tables to MongoDB collections
+ */
+function transformToMongoCollections(
+  schema: StandardizedSchema,
+  embedSmallRelationships: boolean,
+  generateIndexes: boolean,
+  generateValidators: boolean
+): MongoDBCollection[] {
+  const collections: MongoDBCollection[] = [];
+
+  for (const table of schema.tables) {
+    const fields: MongoDBField[] = [];
+
+    // Add _id field
+    fields.push({
+      name: '_id',
+      type: 'objectId',
+      required: true,
+    });
+
+    // Transform columns to fields
+    for (const column of table.columns) {
+      // Skip auto-increment primary keys (replaced by _id)
+      if (column.autoIncrement && table.primaryKey?.columns.includes(column.name)) {
+        continue;
+      }
+
+      // Check if this column is a foreign key
+      const fk = table.foreignKeys.find(fk => fk.columns.includes(column.name));
+
+      if (fk) {
+        // Foreign key -> reference or embed based on relationship
+        const relationship = schema.relationships.find(
+          r => r.from.table === table.name && r.from.columns.includes(column.name)
+        );
+
+        if (embedSmallRelationships && relationship?.type === 'one_to_one') {
+          // Embed one-to-one relationships
+          fields.push({
+            name: toCamelCase(singularize(fk.referencedTable)),
+            type: 'object',
+            required: !column.nullable,
+          });
+        } else {
+          // Use reference (ObjectId)
+          fields.push({
+            name: toCamelCase(column.name),
+            type: 'objectId',
+            required: !column.nullable,
+            ref: toCamelCase(fk.referencedTable),
+          });
+        }
+      } else {
+        // Regular field
+        fields.push({
+          name: toCamelCase(column.name),
+          type: normalizedTypeToMongo(column.type),
+          required: !column.nullable,
+          unique: column.unique,
+          default: column.defaultValue,
+          enum: column.enum,
+        });
+      }
+    }
+
+    // Add timestamps
+    fields.push(
+      { name: 'createdAt', type: 'date', required: true },
+      { name: 'updatedAt', type: 'date', required: true }
+    );
+
+    // Create collection
+    const collection: MongoDBCollection = {
+      name: toCamelCase(table.name),
+      fields,
+    };
+
+    // Add indexes
+    if (generateIndexes) {
+      const indexes: MongoDBIndex[] = [];
+
+      // Foreign key indexes
+      for (const fk of table.foreignKeys) {
+        indexes.push({
+          fields: { [toCamelCase(fk.columns[0])]: 1 },
+          unique: false,
+        });
+      }
+
+      // Unique column indexes
+      for (const column of table.columns) {
+        if (column.unique) {
+          indexes.push({
+            fields: { [toCamelCase(column.name)]: 1 },
+            unique: true,
+          });
+        }
+      }
+
+      if (indexes.length > 0) {
+        collection.indexes = indexes;
+      }
+    }
+
+    // Add validator
+    if (generateValidators) {
+      collection.validator = generateCollectionValidator(fields);
+    }
+
+    collections.push(collection);
+  }
+
+  return collections;
+}
+
+/**
+ * Generate Mongoose schemas (JavaScript/TypeScript)
+ */
+function generateMongooseSchemas(collections: MongoDBCollection[], includeComments: boolean): string {
+  const lines: string[] = [];
+
+  if (includeComments) {
+    lines.push('// Mongoose Schemas Generated by TurboDbx');
+    lines.push('// Generated: ' + new Date().toISOString());
+    lines.push('');
+  }
+
+  lines.push("import mongoose from 'mongoose';");
+  lines.push('');
+
+  for (const collection of collections) {
+    const schemaName = capitalize(collection.name);
+
+    lines.push(`// ${schemaName} Schema`);
+    lines.push(`const ${schemaName}Schema = new mongoose.Schema({`);
+
+    for (const field of collection.fields) {
+      if (field.name === '_id') continue; // Skip _id, MongoDB adds it
+
+      const fieldDef = mongoFieldToMongoose(field);
+      lines.push(`  ${field.name}: ${fieldDef},`);
+    }
+
+    lines.push('}, {');
+    lines.push('  timestamps: true,');
+    lines.push('});');
+    lines.push('');
+
+    // Add indexes
+    if (collection.indexes && collection.indexes.length > 0) {
+      for (const index of collection.indexes) {
+        const fieldsStr = JSON.stringify(index.fields);
+        const optionsStr = index.unique ? ', { unique: true }' : '';
+        lines.push(`${schemaName}Schema.index(${fieldsStr}${optionsStr});`);
+      }
+      lines.push('');
+    }
+
+    // Export model
+    lines.push(`export const ${schemaName} = mongoose.model('${schemaName}', ${schemaName}Schema);`);
+    lines.push('');
+  }
+
+  return lines.join('\n');
+}
+
+/**
+ * Generate MongoDB validators
+ */
+function generateMongoValidators(collections: MongoDBCollection[]): Record<string, any> {
+  const validators: Record<string, any> = {};
+
+  for (const collection of collections) {
+    if (collection.validator) {
+      validators[collection.name] = {
+        validator: collection.validator,
+        validationLevel: 'strict',
+        validationAction: 'error',
+      };
+    }
+  }
+
+  return validators;
+}
+
+/**
+ * Generate validator for a collection
+ */
+function generateCollectionValidator(fields: MongoDBField[]): any {
+  const properties: any = {};
+  const required: string[] = [];
+
+  for (const field of fields) {
+    if (field.name === '_id') continue;
+
+    properties[field.name] = {
+      bsonType: mongoTypeToBson(field.type),
+    };
+
+    if (field.required) {
+      required.push(field.name);
+    }
+
+    if (field.enum) {
+      properties[field.name].enum = field.enum;
+    }
+  }
+
+  return {
+    $jsonSchema: {
+      bsonType: 'object',
+      required,
+      properties,
+    },
+  };
+}
+
+/**
+ * Convert MongoDB field to Mongoose definition
+ */
+function mongoFieldToMongoose(field: MongoDBField): string {
+  if (field.ref) {
+    return `{ type: mongoose.Schema.Types.ObjectId, ref: '${capitalize(field.ref)}'${field.required ? ', required: true' : ''} }`;
+  }
+
+  const typeMap: Record<string, string> = {
+    string: 'String',
+    number: 'Number',
+    bool: 'Boolean',
+    date: 'Date',
+    objectId: 'mongoose.Schema.Types.ObjectId',
+    array: 'Array',
+    object: 'Object',
+    decimal: 'mongoose.Schema.Types.Decimal128',
+    binData: 'Buffer',
+  };
+
+  const mongooseType = typeMap[field.type] || 'String';
+  const parts: string[] = [`type: ${mongooseType}`];
+
+  if (field.required) parts.push('required: true');
+  if (field.unique) parts.push('unique: true');
+  if (field.default !== undefined) parts.push(`default: ${JSON.stringify(field.default)}`);
+  if (field.enum) parts.push(`enum: ${JSON.stringify(field.enum)}`);
+
+  return `{ ${parts.join(', ')} }`;
+}
+
+/**
+ * Map normalized type to MongoDB type
+ */
+function normalizedTypeToMongo(type: string): string {
+  const typeMap: Record<string, string> = {
+    string: 'string',
+    text: 'string',
+    integer: 'number',
+    bigint: 'long',
+    decimal: 'decimal',
+    float: 'double',
+    double: 'double',
+    boolean: 'bool',
+    date: 'date',
+    datetime: 'date',
+    timestamp: 'date',
+    time: 'string',
+    blob: 'binData',
+    json: 'object',
+    uuid: 'string',
+    enum: 'string',
+  };
+
+  return typeMap[type] || 'string';
+}
+
+/**
+ * Map MongoDB type to BSON type
+ */
+function mongoTypeToBson(type: string): string {
+  const typeMap: Record<string, string> = {
+    string: 'string',
+    number: 'int',
+    long: 'long',
+    double: 'double',
+    decimal: 'decimal',
+    bool: 'bool',
+    date: 'date',
+    objectId: 'objectId',
+    array: 'array',
+    object: 'object',
+    binData: 'binData',
+  };
+
+  return typeMap[type] || 'string';
+}
+
+/**
+ * Convert to camelCase
+ */
+function toCamelCase(str: string): string {
+  return str
+    .toLowerCase()
+    .replace(/_([a-z])/g, (_, letter) => letter.toUpperCase())
+    .replace(/^[A-Z]/, letter => letter.toLowerCase());
+}
+
+/**
+ * Capitalize first letter
+ */
+function capitalize(str: string): string {
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+/**
+ * Singularize (simple version)
+ */
+function singularize(str: string): string {
+  if (str.endsWith('ies')) return str.slice(0, -3) + 'y';
+  if (str.endsWith('ses') || str.endsWith('xes') || str.endsWith('zes')) return str.slice(0, -2);
+  if (str.endsWith('s') && !str.endsWith('ss')) return str.slice(0, -1);
+  return str;
+}
