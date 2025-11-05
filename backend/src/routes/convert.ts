@@ -8,6 +8,7 @@ import { Router, Request, Response } from 'express';
 import { ConvertRequest, ConvertResponse } from '../types';
 import { parseToJson } from '../schema_parser/parseToJson';
 import { convertFromJson, TargetFormat } from '../converters/fromJson';
+import { MySQLOptions, PostgreSQLOptions, SQLiteOptions, MongoDBOptions } from '../converters/fromJson/types';
 import logger from '../utils/logger';
 
 const router = Router();
@@ -114,7 +115,10 @@ function mapTargetType(targetType: string, dialect?: string): TargetFormat {
 /**
  * Build conversion options for Phase 2
  */
-function buildConversionOptions(request: ConvertRequest, targetFormat: TargetFormat): any {
+function buildConversionOptions(
+  request: ConvertRequest,
+  targetFormat: TargetFormat
+): MySQLOptions | PostgreSQLOptions | SQLiteOptions | MongoDBOptions {
   const baseOptions = {
     includeDropStatements: request.options?.includeDropStatements ?? false,
     includeIfNotExists: request.options?.includeIfNotExists ?? true,

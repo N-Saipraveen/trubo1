@@ -8,7 +8,7 @@
 backend/src/
 ├── schema_parser/              # ✅ CREATED - Phase 1
 │   ├── types.ts               # ✅ Standardized JSON schema types
-│   ├── parseToJson.ts         # ✅ Claude API parser (awaiting prompt)
+│   ├── parseToJson.ts         # ✅ OpenAI API parser (complete with prompt)
 │   └── validator.ts           # ✅ Schema validation
 │
 ├── converters/                # ✅ CREATED - Phase 2
@@ -34,7 +34,7 @@ backend/src/
 ```
 Input Schema (SQL/MongoDB/JSON)
          ↓
-    parseToJson() ← Uses Claude API
+    parseToJson() ← Uses OpenAI API (ChatAnywhere)
          ↓
 Standardized JSON Schema
 ```
@@ -218,32 +218,35 @@ AI automatically infers relationship types:
 
 ---
 
-## 🔧 What's Next
+## 🔧 Status: Complete!
 
-### ⏳ **AWAITING: AI Schema Extraction Prompt**
+### ✅ **OpenAI Schema Extraction Prompt: IMPLEMENTED**
 
-The `parseToJson.ts` file needs the actual Claude API prompt for schema extraction. Current placeholder:
+The `parseToJson.ts` file now has a comprehensive schema extraction prompt that:
 
-```typescript
-// In parseToJson.ts, line 50:
-const systemPrompt = `You are TurboDbx Schema Extractor.
-Your task is to analyze the provided database schema and extract it into a standardized JSON format.
+1. **Extracts all schema information**:
+   - Tables/collections with all columns/fields
+   - Primary keys (single and composite)
+   - Foreign keys with CASCADE rules
+   - Indexes (unique and non-unique)
+   - Constraints (CHECK, UNIQUE, etc.)
 
-[EXTRACTION PROMPT WILL BE PROVIDED BY USER]  ← **YOU PROVIDE THIS**
+2. **Normalizes data types** to 15 standard types:
+   - string, text, integer, bigint, decimal, float, double
+   - boolean, date, datetime, timestamp, time
+   - blob, json, uuid, enum
 
-Output ONLY valid JSON matching the StandardizedSchema format.`;
-```
+3. **Intelligently infers relationships**:
+   - **one_to_one**: Foreign key with UNIQUE constraint
+   - **one_to_many**: Regular foreign key (no UNIQUE)
+   - **many_to_many**: Junction table with 2 FKs
 
-**What the prompt should do:**
-1. Accept SQL DDL, MongoDB schemas, or JSON data as input
-2. Extract tables/collections with all columns/fields
-3. Detect primary keys, foreign keys, unique constraints
-4. **Infer relationship types** (1:1, 1:N, N:M) based on:
-   - UNIQUE constraints on FK columns → one_to_one
-   - Regular FK columns → one_to_many
-   - Tables with only 2 FKs → many_to_many (junction table)
-5. Normalize all data types to standard types
-6. Output valid JSON matching `StandardizedSchema` interface
+4. **Outputs standardized JSON** matching `StandardizedSchema` interface
+
+5. **Uses OpenAI API** via ChatAnywhere:
+   - Model: gpt-3.5-turbo
+   - Temperature: 0.1 (for consistent structured output)
+   - Max tokens: 4000
 
 ---
 
@@ -289,26 +292,69 @@ Output ONLY valid JSON matching the StandardizedSchema format.`;
 
 ---
 
-## 🚀 Next Steps
+## 🚀 Ready to Use!
 
-1. **USER ACTION REQUIRED**: Provide AI schema extraction prompt for `parseToJson.ts`
+The two-phase architecture is now **fully implemented and operational**. Here's how to test:
 
-2. **Test Phase 1**: Test schema parsing with Claude API
-   ```bash
-   curl -X POST http://localhost:4000/api/convert \
-     -d '{"input": "CREATE TABLE...", "sourceType": "mysql", "targetType": "json"}'
-   ```
+### 1. **Start the Server**
+```bash
+npm run dev
+```
 
-3. **Test Phase 2**: Test converters with standardized JSON
-   ```bash
-   # Direct converter testing
-   import { jsonToSQLite } from './converters/fromJson';
-   const output = jsonToSQLite(standardizedJson);
-   ```
+### 2. **Test Phase 1**: Schema Parsing (Input → JSON)
+```bash
+curl -X POST http://localhost:4000/api/convert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "CREATE TABLE users (id INT PRIMARY KEY AUTO_INCREMENT, email VARCHAR(255) UNIQUE);",
+    "sourceType": "mysql",
+    "targetType": "json"
+  }'
+```
 
-4. **Update Visualization**: Make visualization read from `standardizedJson` field in response
+### 3. **Test Phase 2**: Full Conversion (Input → JSON → Target)
+```bash
+# MySQL → SQLite
+curl -X POST http://localhost:4000/api/convert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "CREATE TABLE users (id INT PRIMARY KEY AUTO_INCREMENT, email VARCHAR(255));",
+    "sourceType": "mysql",
+    "targetType": "sqlite"
+  }'
 
-5. **Update Documentation**: Document the new API response format
+# SQL → MongoDB
+curl -X POST http://localhost:4000/api/convert \
+  -H "Content-Type: application/json" \
+  -d '{
+    "input": "CREATE TABLE orders (id INT PRIMARY KEY, user_id INT, FOREIGN KEY (user_id) REFERENCES users(id));",
+    "sourceType": "mysql",
+    "targetType": "mongodb",
+    "options": {
+      "format": "mongoose",
+      "embedSmallRelationships": true
+    }
+  }'
+```
+
+### 4. **Inspect Intermediate JSON**
+The response includes `standardizedJson` field:
+```javascript
+{
+  "success": true,
+  "result": {
+    "schema": "...converted output...",
+    "standardizedJson": {
+      "version": "1.0",
+      "tables": [...],
+      "relationships": [...]
+    }
+  }
+}
+```
+
+### 5. **Update Visualization** (Next Step)
+Make visualization components read from `response.result.standardizedJson` instead of parsing raw SQL
 
 ---
 
@@ -334,16 +380,21 @@ Output ONLY valid JSON matching the StandardizedSchema format.`;
 
 ## 💡 Key Design Decisions
 
-1. **AI-First Parsing**: Use Claude for intelligent schema extraction instead of regex/parsers
+1. **AI-First Parsing**: Use OpenAI (gpt-3.5-turbo) for intelligent schema extraction
 2. **Normalized Types**: 15 standard types cover all database types
 3. **Relationship Inference**: AI detects 1:1, 1:N, N:M relationships automatically
 4. **Format-Specific Options**: Each converter has its own options interface
-5. **Backward Compatible**: Old ETL code preserved in `legacy/` folder
+5. **Backward Compatible**: Old ETL code preserved for reference
 6. **Validation**: Strict validation of standardized JSON schema
 7. **Logging**: Comprehensive logging at each phase
 
 ---
 
-**Ready for AI prompt integration! 🎉**
+**✅ System is fully operational and ready to use! 🎉**
 
-Once you provide the Claude API prompt for schema extraction, the system will be fully operational.
+The OpenAI-powered schema extraction is complete with a comprehensive prompt that handles:
+- All SQL dialects (MySQL, PostgreSQL, SQLite)
+- MongoDB schemas
+- JSON data inference
+- Intelligent relationship detection
+- Type normalization
