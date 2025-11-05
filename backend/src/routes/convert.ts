@@ -1,24 +1,24 @@
 /**
- * Conversion API routes
+ * Conversion API routes - Two-Phase Architecture
+ * Phase 1: Parse input → Standardized JSON
+ * Phase 2: Convert JSON → Target format
  */
 
 import { Router, Request, Response } from 'express';
-import {
-  convertSqlToNoSql,
-  convertNoSqlToSql,
-  convertJsonToSql,
-  convertJsonToNoSql,
-  convertSqlToJson,
-} from '@turbodbx/core';
 import { ConvertRequest, ConvertResponse } from '../types';
+import { parseToJson } from '../schema_parser/parseToJson';
+import { convertFromJson, TargetFormat } from '../converters/fromJson';
+import logger from '../utils/logger';
 
 const router = Router();
 
 /**
  * POST /api/convert
- * Convert between SQL, NoSQL, and JSON formats
+ * Two-phase conversion: Input → Standardized JSON → Target Format
  */
 router.post('/', async (req: Request, res: Response) => {
+  const startTime = Date.now();
+
   try {
     const request: ConvertRequest = req.body;
 
@@ -29,129 +29,133 @@ router.post('/', async (req: Request, res: Response) => {
       } as ConvertResponse);
     }
 
-    let result;
+    logger.info('Starting two-phase conversion', {
+      sourceType: request.sourceType,
+      targetType: request.targetType,
+    });
 
-    // SQL to NoSQL
-    if (request.sourceType === 'sql' && request.targetType === 'nosql') {
-      if (typeof request.input !== 'string') {
-        return res.status(400).json({
-          success: false,
-          errors: ['SQL input must be a string'],
-        } as ConvertResponse);
-      }
-      result = convertSqlToNoSql(request.input, request.options);
-    }
-    // NoSQL to SQL
-    else if (request.sourceType === 'nosql' && request.targetType === 'sql') {
-      if (typeof request.input === 'string') {
-        try {
-          request.input = JSON.parse(request.input);
-        } catch {
-          return res.status(400).json({
-            success: false,
-            errors: ['Invalid NoSQL JSON input'],
-          } as ConvertResponse);
-        }
-      }
-      result = convertNoSqlToSql(
-        request.input as any,
-        request.dialect || 'postgresql',
-        request.options
-      );
-    }
-    // JSON to SQL
-    else if (request.sourceType === 'json' && request.targetType === 'sql') {
-      if (typeof request.input === 'string') {
-        try {
-          request.input = JSON.parse(request.input);
-        } catch {
-          return res.status(400).json({
-            success: false,
-            errors: ['Invalid JSON input'],
-          } as ConvertResponse);
-        }
-      }
-      result = convertJsonToSql(
-        request.input,
-        'data',
-        request.dialect || 'postgresql',
-        request.options
-      );
-    }
-    // JSON to NoSQL
-    else if (request.sourceType === 'json' && request.targetType === 'nosql') {
-      if (typeof request.input === 'string') {
-        try {
-          request.input = JSON.parse(request.input);
-        } catch {
-          return res.status(400).json({
-            success: false,
-            errors: ['Invalid JSON input'],
-          } as ConvertResponse);
-        }
-      }
-      result = convertJsonToNoSql(request.input, 'data', request.options);
-    }
-    // SQL to JSON
-    else if (request.sourceType === 'sql' && request.targetType === 'json') {
-      if (typeof request.input !== 'string') {
-        return res.status(400).json({
-          success: false,
-          errors: ['SQL input must be a string'],
-        } as ConvertResponse);
-      }
-      result = convertSqlToJson(request.input);
-    }
-    // NoSQL to JSON (direct pass-through with formatting)
-    else if (request.sourceType === 'nosql' && request.targetType === 'json') {
-      if (typeof request.input === 'string') {
-        try {
-          request.input = JSON.parse(request.input);
-        } catch {
-          return res.status(400).json({
-            success: false,
-            errors: ['Invalid NoSQL JSON input'],
-          } as ConvertResponse);
-        }
-      }
-      result = {
-        success: true,
-        schema: request.input,
-        metadata: {
-          sourceType: 'nosql',
-          targetType: 'json',
-          tablesOrCollections: 1,
-          conversionTime: 0,
-        },
-      };
-    } else {
-      return res.status(400).json({
-        success: false,
-        errors: ['Invalid source/target type combination'],
-      } as ConvertResponse);
-    }
+    // ====== PHASE 1: Parse input to standardized JSON ======
+    logger.info('Phase 1: Parsing to standardized JSON...');
 
+    const inputString = typeof request.input === 'string' ? request.input : JSON.stringify(request.input);
+
+    const standardizedSchema = await parseToJson(inputString, {
+      sourceType: request.sourceType as any,
+      validateOutput: true,
+    });
+
+    logger.info('Phase 1 complete', {
+      tables: standardizedSchema.tables.length,
+      relationships: standardizedSchema.relationships.length,
+    });
+
+    // ====== PHASE 2: Convert JSON to target format ======
+    logger.info('Phase 2: Converting to target format...');
+
+    const targetFormat = mapTargetType(request.targetType, request.dialect);
+    const conversionOptions = buildConversionOptions(request, targetFormat);
+
+    const result = convertFromJson(standardizedSchema, targetFormat, conversionOptions);
+
+    logger.info('Phase 2 complete');
+
+    const conversionTime = Date.now() - startTime;
+
+    // Return response
     const response: ConvertResponse = {
-      success: result.success,
-      result: result.success
-        ? {
-            schema: result.schema,
-            data: result.data,
-            metadata: result.metadata,
-          }
-        : undefined,
-      errors: result.errors,
-      warnings: result.warnings,
+      success: true,
+      result: {
+        schema: result,
+        metadata: {
+          sourceType: request.sourceType,
+          targetType: request.targetType,
+          tablesOrCollections: standardizedSchema.tables.length,
+          conversionTime,
+          phase1Time: 'Parsed via AI',
+          phase2Time: 'Converted from JSON',
+        },
+        standardizedJson: standardizedSchema, // Include the intermediate JSON
+      },
     };
 
     res.json(response);
   } catch (error) {
-    console.error('Conversion error:', error);
+    logger.error('Conversion error:', error);
     res.status(500).json({
       success: false,
       errors: [error instanceof Error ? error.message : 'Unknown error'],
     } as ConvertResponse);
   }
 });
+
+/**
+ * Map targetType and dialect to TargetFormat
+ */
+function mapTargetType(targetType: string, dialect?: string): TargetFormat {
+  if (targetType === 'nosql' || targetType === 'mongodb') {
+    return 'mongodb';
+  }
+
+  if (targetType === 'sql') {
+    if (dialect === 'mysql') return 'mysql';
+    if (dialect === 'sqlite') return 'sqlite';
+    return 'postgresql'; // Default SQL dialect
+  }
+
+  // Direct format specification
+  if (['mysql', 'postgresql', 'sqlite', 'mongodb'].includes(targetType)) {
+    return targetType as TargetFormat;
+  }
+
+  // Default fallback
+  return 'postgresql';
+}
+
+/**
+ * Build conversion options for Phase 2
+ */
+function buildConversionOptions(request: ConvertRequest, targetFormat: TargetFormat): any {
+  const baseOptions = {
+    includeDropStatements: request.options?.includeDropStatements ?? false,
+    includeIfNotExists: request.options?.includeIfNotExists ?? true,
+    includeComments: request.options?.includeComments ?? true,
+    indentation: request.options?.indentation ?? '  ',
+  };
+
+  switch (targetFormat) {
+    case 'mysql':
+      return {
+        ...baseOptions,
+        engine: request.options?.engine || 'InnoDB',
+        charset: request.options?.charset || 'utf8mb4',
+        collation: request.options?.collation || 'utf8mb4_unicode_ci',
+      };
+
+    case 'postgresql':
+      return {
+        ...baseOptions,
+        useSerial: request.options?.useSerial ?? true,
+      };
+
+    case 'sqlite':
+      return {
+        ...baseOptions,
+        enableForeignKeys: request.options?.enableForeignKeys ?? true,
+        strictMode: request.options?.strictMode ?? false,
+      };
+
+    case 'mongodb':
+      return {
+        ...baseOptions,
+        format: request.options?.format || 'json',
+        embedSmallRelationships: request.options?.embedSmallRelationships ?? true,
+        generateIndexes: request.options?.generateIndexes ?? true,
+        generateValidators: request.options?.generateValidators ?? true,
+      };
+
+    default:
+      return baseOptions;
+  }
+}
 
 export default router;
