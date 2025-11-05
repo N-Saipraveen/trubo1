@@ -4,16 +4,40 @@
 
 export interface ConvertRequest {
   input: string | object;
-  sourceType: 'sql' | 'nosql' | 'json';
-  targetType: 'sql' | 'nosql' | 'json';
+  sourceType: 'sql' | 'nosql' | 'json' | 'mysql' | 'postgresql' | 'sqlite' | 'mongodb';
+  targetType: 'sql' | 'nosql' | 'json' | 'mysql' | 'postgresql' | 'sqlite' | 'mongodb';
   dialect?: 'mysql' | 'postgresql' | 'sqlite' | 'mssql';
   options?: {
+    // Legacy options
     preserveCase?: boolean;
     generateIds?: boolean;
     embedRelations?: boolean;
     normalizeDepth?: number;
     includeTimestamps?: boolean;
+
+    // Common conversion options (Phase 2)
+    includeDropStatements?: boolean;
+    includeIfNotExists?: boolean;
+    includeComments?: boolean;
+    indentation?: string;
     strictMode?: boolean;
+
+    // MySQL-specific
+    engine?: 'InnoDB' | 'MyISAM';
+    charset?: string;
+    collation?: string;
+
+    // PostgreSQL-specific
+    useSerial?: boolean;
+
+    // SQLite-specific
+    enableForeignKeys?: boolean;
+
+    // MongoDB-specific
+    format?: 'json' | 'mongoose' | 'validator';
+    embedSmallRelationships?: boolean;
+    generateIndexes?: boolean;
+    generateValidators?: boolean;
   };
 }
 
@@ -27,7 +51,10 @@ export interface ConvertResponse {
       targetType: string;
       tablesOrCollections: number;
       conversionTime: number;
+      phase1Time?: string;
+      phase2Time?: string;
     };
+    standardizedJson?: any; // The intermediate standardized JSON schema from Phase 1
   };
   errors?: string[];
   warnings?: string[];
